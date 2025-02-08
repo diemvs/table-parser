@@ -1,0 +1,9 @@
+# table_data.yaml
+
+train: ../table_dataset/images/train
+val: ../table_dataset/images/val
+test: ../table_dataset/images/test  
+
+names:
+  0: bordered
+  1: borderless
