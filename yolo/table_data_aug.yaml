@@ -1,0 +1,9 @@
+# table_data_aug.yaml
+
+train: ../table_dataset_aug/images/train
+val: ../table_dataset_aug/images/val
+test: ../table_dataset_aug/images/test  
+
+names:
+  0: bordered
+  1: borderless
