@@ -176,3 +176,5 @@ yolo/dataset/*
 
 *.jpg
 *.txt
+/.venv-2
+*.pt
