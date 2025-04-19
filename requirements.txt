@@ -4,3 +4,7 @@ torchaudio
 --extra-index-url https://download.pytorch.org/whl/cu126
 
 ultralytics
+fastapi 
+uvicorn 
+pillow 
+opencv-python
