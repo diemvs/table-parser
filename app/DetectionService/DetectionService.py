@@ -3,9 +3,18 @@ from fastapi.responses import JSONResponse
 from PIL import Image
 import io
 from ultralytics import YOLO
+import logging
+import torch
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+logger.info(f"device: {device}")
 
 app = FastAPI()
 model = YOLO("weights/yolo/weights.pt")
+model.to(device)
 
 @app.post("/detect")
 async def detect(file: UploadFile = File(...)):

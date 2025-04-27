@@ -12,7 +12,6 @@ import easyocr
 
 app = FastAPI(debug=True)
 
-
 def extract_cells(image: np.ndarray, min_cell_width: int = 20, min_cell_height: int = 20) -> List[List[Tuple[int, int, int, int]]]:
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
     blurred = cv2.GaussianBlur(gray, (3, 3), 0)
