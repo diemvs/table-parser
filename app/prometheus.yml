@@ -1,0 +1,11 @@
+global:
+  scrape_interval: 5s
+
+scrape_configs:
+  - job_name: 'detection-service'
+    static_configs:
+      - targets: ['detection:8000']
+
+  - job_name: 'recognition-service'
+    static_configs:
+      - targets: ['recognition:8001']

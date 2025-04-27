@@ -9,8 +9,10 @@ import pandas as pd
 from PIL import Image
 import pytesseract
 import easyocr
+from prometheus_fastapi_instrumentator import Instrumentator
 
 app = FastAPI(debug=True)
+Instrumentator().instrument(app).expose(app)
 
 def extract_cells(image: np.ndarray, min_cell_width: int = 20, min_cell_height: int = 20) -> List[List[Tuple[int, int, int, int]]]:
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)

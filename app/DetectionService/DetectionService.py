@@ -5,6 +5,7 @@ import io
 from ultralytics import YOLO
 import logging
 import torch
+from prometheus_fastapi_instrumentator import Instrumentator
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -15,6 +16,7 @@ logger.info(f"device: {device}")
 app = FastAPI()
 model = YOLO("weights/yolo/weights.pt")
 model.to(device)
+Instrumentator().instrument(app).expose(app)
 
 @app.post("/detect")
 async def detect(file: UploadFile = File(...)):
