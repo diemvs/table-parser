@@ -76,7 +76,7 @@ def recognize_cells_with_tesseract(image: np.ndarray, rows: List[List[Tuple[int,
 
 
 def recognize_cells_with_easyocr(image: np.ndarray, rows: List[List[Tuple[int, int, int, int]]], lang: str = 'ru') -> pd.DataFrame:
-    reader = easyocr.Reader([lang], gpu=False)
+    reader = easyocr.Reader([lang], gpu=True)
     data = []
     for row in rows:
         row_data = []

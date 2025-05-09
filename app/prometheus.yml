@@ -9,3 +9,7 @@ scrape_configs:
   - job_name: 'recognition-service'
     static_configs:
       - targets: ['recognition:8001']
+
+  - job_name: 'hardware-metrics'
+    static_configs:
+      - targets: ['metrics-collector:9100']

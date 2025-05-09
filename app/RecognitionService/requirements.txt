@@ -1,0 +1,12 @@
+fastapi
+uvicorn
+pytesseract
+opencv-python-headless
+pillow
+numpy
+pandas
+python-multipart
+easyocr
+
+prometheus-client
+prometheus-fastapi-instrumentator
