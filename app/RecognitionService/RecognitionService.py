@@ -10,11 +10,30 @@ from PIL import Image
 import pytesseract
 import easyocr
 from prometheus_fastapi_instrumentator import Instrumentator
+from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
+import torch
+import logging
+from transformers import T5ForConditionalGeneration, GenerationConfig, T5Tokenizer
+import torch
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+tokenizer_for_restoring = T5Tokenizer.from_pretrained('bond005/ruT5-ASR-large')
+model_for_restoring = T5ForConditionalGeneration.from_pretrained('bond005/ruT5-ASR-large')
+config_for_restoring = GenerationConfig.from_pretrained('bond005/ruT5-ASR-large')
+
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+logger.info(f"device: {device}")
 
 app = FastAPI(debug=True)
 Instrumentator().instrument(app).expose(app)
 
-def extract_cells(image: np.ndarray, min_cell_width: int = 20, min_cell_height: int = 20) -> List[List[Tuple[int, int, int, int]]]:
+def extract_cells(
+    image: np.ndarray, 
+    min_cell_width: int = 20, 
+    min_cell_height: int = 20
+) -> List[List[Tuple[int, int, int, int]]]:
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
     blurred = cv2.GaussianBlur(gray, (3, 3), 0)
     _, binary = cv2.threshold(blurred, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
@@ -59,7 +78,12 @@ def extract_cells(image: np.ndarray, min_cell_width: int = 20, min_cell_height: 
     return rows
 
 
-def recognize_cells_with_tesseract(image: np.ndarray, rows: List[List[Tuple[int, int, int, int]]], lang: str = 'eng') -> pd.DataFrame:
+def recognize_cells_with_tesseract(
+    image: np.ndarray, 
+    rows: List[List[Tuple[int, int, int, int]]], 
+    lang: str = 'ru',
+    correct_text: bool = True
+) -> pd.DataFrame:
     data = []
     for row in rows:
         row_data = []
@@ -70,12 +94,21 @@ def recognize_cells_with_tesseract(image: np.ndarray, rows: List[List[Tuple[int,
             roi_gray = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY)
             _, roi_bin = cv2.threshold(roi_gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
             text = pytesseract.image_to_string(roi_bin, config='--psm 6', lang=lang).strip()
+            
+            if(correct_text):
+                text = restore_text(text, tokenizer_for_restoring, config_for_restoring, model_for_restoring) if lang == OCRLang.rus else text
+            
             row_data.append(text)
         data.append(row_data)
     return pd.DataFrame(data)
 
 
-def recognize_cells_with_easyocr(image: np.ndarray, rows: List[List[Tuple[int, int, int, int]]], lang: str = 'ru') -> pd.DataFrame:
+def recognize_cells_with_easyocr(
+    image: np.ndarray, 
+    rows: List[List[Tuple[int, int, int, int]]], 
+    lang: str = OCRLang.rus,
+    correct_text: bool = True
+) -> pd.DataFrame:
     reader = easyocr.Reader([lang], gpu=True)
     data = []
     for row in rows:
@@ -86,14 +119,36 @@ def recognize_cells_with_easyocr(image: np.ndarray, rows: List[List[Tuple[int, i
             roi_rgb = cv2.cvtColor(roi, cv2.COLOR_BGR2RGB)
             results = reader.readtext(roi_rgb, detail=0)
             text = results[0] if results else ""
+            
+            if(correct_text):
+                text = restore_text(text, tokenizer_for_restoring, config_for_restoring, model_for_restoring) if lang == OCRLang.rus else text
+            
             row_data.append(text)
         data.append(row_data)
     return pd.DataFrame(data)
+
+def restore_text(
+    text: str, 
+    tokenizer: T5Tokenizer, 
+    config: GenerationConfig,
+    model: T5ForConditionalGeneration
+) -> str:
+    if len(text) == 0:
+        return ''
+    x = tokenizer(text, return_tensors='pt', padding=True).to(model.device)
+    max_size = int(x.input_ids.shape[1] * 2.0 + 10)
+    min_size = 3
+    if x.input_ids.shape[1] <= min_size:
+        return text
+    out = model.generate(**x, generation_config=config, max_length=max_size)
+    res = tokenizer.decode(out[0], skip_special_tokens=True).strip()
+    return ' '.join(res.split())
 
 @app.post("/recognize")
 async def recognize(
     file: UploadFile = File(...), 
     lang: OCRLang = Query(default=OCRLang.eng), 
+    correct_text: bool = True,
     engine: OCREngine = Query(default=OCREngine.tesseract)
 ):
     try:
@@ -104,9 +159,9 @@ async def recognize(
         rows = extract_cells(image_np)
 
         if engine == OCREngine.easyocr:
-            df = recognize_cells_with_easyocr(image_np, rows, lang=lang)
+            df = recognize_cells_with_easyocr(image_np, rows, lang=lang, correct_text=correct_text)
         elif engine == OCREngine.tesseract:
-            df = recognize_cells_with_tesseract(image_np, rows, lang=lang)
+            df = recognize_cells_with_tesseract(image_np, rows, lang=lang, correct_text=correct_text)
         else:
             raise ValueError(f"Unsupported OCR engine: {engine}")
 
