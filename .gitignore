@@ -176,7 +176,6 @@ yolo/dataset/*
 
 *.jpg
 /.venv-2
-*.pt
 /.venv2
 /yolo/table_dataset
 /buf

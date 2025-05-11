@@ -26,6 +26,9 @@ config_for_restoring = GenerationConfig.from_pretrained('bond005/ruT5-ASR-large'
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 logger.info(f"device: {device}")
 
+if torch.cuda.is_available():
+    model_for_restoring = model_for_restoring.cuda()
+
 app = FastAPI(debug=True)
 Instrumentator().instrument(app).expose(app)
 
@@ -81,7 +84,7 @@ def extract_cells(
 def recognize_cells_with_tesseract(
     image: np.ndarray, 
     rows: List[List[Tuple[int, int, int, int]]], 
-    lang: str = 'ru',
+    lang: OCRLang = OCRLang.rus,
     correct_text: bool = True
 ) -> pd.DataFrame:
     data = []
@@ -102,7 +105,6 @@ def recognize_cells_with_tesseract(
         data.append(row_data)
     return pd.DataFrame(data)
 
-
 def recognize_cells_with_easyocr(
     image: np.ndarray, 
     rows: List[List[Tuple[int, int, int, int]]], 
@@ -120,9 +122,12 @@ def recognize_cells_with_easyocr(
             results = reader.readtext(roi_rgb, detail=0)
             text = results[0] if results else ""
             
+            print(f"[OCR] Raw: {text}")
+            
             if(correct_text):
                 text = restore_text(text, tokenizer_for_restoring, config_for_restoring, model_for_restoring) if lang == OCRLang.rus else text
-            
+                print(f"[Corrected] {text}")
+                
             row_data.append(text)
         data.append(row_data)
     return pd.DataFrame(data)
@@ -147,7 +152,7 @@ def restore_text(
 @app.post("/recognize")
 async def recognize(
     file: UploadFile = File(...), 
-    lang: OCRLang = Query(default=OCRLang.eng), 
+    lang: OCRLang = Query(default=OCRLang.rus), 
     correct_text: bool = True,
     engine: OCREngine = Query(default=OCREngine.tesseract)
 ):
