@@ -37,16 +37,6 @@ services:
     volumes:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml
 
-  metrics-collector:
-      build:
-        context: ./MetricsCollectorService 
-      container_name: metrics-collector
-      ports:
-        - "9100:9100"
-      restart: unless-stopped
-      depends_on:
-        - prometheus
-
   preprocess:
       build:
         context: ./PreprocessService

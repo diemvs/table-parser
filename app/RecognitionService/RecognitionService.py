@@ -11,20 +11,37 @@ import pytesseract
 import easyocr
 from prometheus_fastapi_instrumentator import Instrumentator
 from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
+from transformers import TrOCRProcessor, VisionEncoderDecoderModel
 import torch
 import logging
 from transformers import T5ForConditionalGeneration, GenerationConfig, T5Tokenizer
 import torch
+from torchvision import transforms
+from prometheus_client import Summary
+from time import perf_counter
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+rec_duration = Summary("recognition_duration_seconds", "Recognition processing duration in seconds")
 
 tokenizer_for_restoring = T5Tokenizer.from_pretrained('bond005/ruT5-ASR-large')
 model_for_restoring = T5ForConditionalGeneration.from_pretrained('bond005/ruT5-ASR-large')
 config_for_restoring = GenerationConfig.from_pretrained('bond005/ruT5-ASR-large')
 
+# Загрузка модели TrOCR
+processor_trocr = TrOCRProcessor.from_pretrained("microsoft/trocr-base-handwritten")
+model_trocr = VisionEncoderDecoderModel.from_pretrained("microsoft/trocr-base-handwritten")
+
+
+trocr_transform = transforms.Compose([
+    transforms.ToPILImage(),
+    transforms.Resize((384, 384)),
+    transforms.ToTensor()
+])
+
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 logger.info(f"device: {device}")
+model_trocr.to(device)
 
 if torch.cuda.is_available():
     model_for_restoring = model_for_restoring.cuda()
@@ -156,6 +173,7 @@ async def recognize(
     correct_text: bool = True,
     engine: OCREngine = Query(default=OCREngine.tesseract)
 ):
+    start = perf_counter()
     try:
         image_bytes = await file.read()
         image = Image.open(BytesIO(image_bytes)).convert("RGB")
@@ -176,3 +194,7 @@ async def recognize(
     except Exception as e:
         print('Recognition error:', e)
         return JSONResponse(status_code=500, content={"error": str(e)})
+    finally:
+        duration = perf_counter() - start
+        rec_duration.observe(duration)
+

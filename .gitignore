@@ -179,3 +179,4 @@ yolo/dataset/*
 /.venv2
 /yolo/table_dataset
 /buf
+/yolo
